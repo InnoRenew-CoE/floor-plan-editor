@@ -1,19 +1,26 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import type {Point2D} from "$lib/types/Graphics";
+    import type {Point2D, Room} from "$lib/types/Graphics";
 
     export let debug: boolean = true
+
+    const testRoom: Room = {
+        points: [{x: 0, y: 0}, {x: 0, y: 5}, {x: 5, y: 5}, {x: 5, y: 0}]
+    }
 
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
     let windowHeight: number, windowWidth: number
 
+    const minimumPointSize = 20
     let scale = 1.0;
-    let pointSize = 10.0
+    let pointSize = minimumPointSize
+    let halfPointSize: number
+    $: halfPointSize = pointSize / 2
+
     let centerPosition: Point2D = {x: 0, y: 0}
     let mousePosition: Point2D = centerPosition
     let moveStartPosition: Point2D = centerPosition
-
 
     function dpiFix() {
         ctx = canvas.getContext("2d")
@@ -31,28 +38,31 @@
     }
 
     function move(event: MouseEvent) {
-        mousePosition = {x: event.clientX, y: event.clientY}
+        mousePosition = {x: event.pageX, y: event.pageY}
         if (event.button == 1) { // Middle button
             let distanceX = event.clientX - moveStartPosition.x
             let distanceY = event.clientY - moveStartPosition.y
         }
     }
 
-    onMount(async () => {
-        dpiFix()
-    })
-
     function redraw() {
         if (ctx) {
             ctx.clearRect(0, 0, 10000, 1000)
             drawGrid()
+            drawRoom(testRoom)
+
             if (debug) {
+                const fakeCenter = transformRealToFake(centerPosition);
+                const transformedMouseFake = transformRealToFake(mousePosition);
+                const drawableCenter = transformFakeToDrawable(fakeCenter);
                 ctx.strokeStyle = "black"
+                ctx.lineWidth = 1
                 ctx.strokeText(`Mouse: ${mousePosition.x}, ${mousePosition.y}`, 20, 20)
                 ctx.strokeText(`Mouse: ${mousePosition.x - centerPosition.x}, ${centerPosition.y - mousePosition.y}`, 20, 40)
-                ctx.beginPath()
-                ctx.fillRect(centerPosition.x, centerPosition.y, pointSize, pointSize)
-                ctx.fill();
+                ctx.strokeText(`Mouse: ${transformedMouseFake.x}, ${transformedMouseFake.y}`, 20, 60)
+                // ctx.beginPath()
+                // ctx.fillRect(drawableCenter.x, drawableCenter.y, pointSize, pointSize)
+                // ctx.fill();
                 ctx.closePath()
             }
 
@@ -64,9 +74,9 @@
 
             const transformed = transformRealToFake(mousePosition);
             const drawable = transformFakeToDrawable(transformed);
-            console.log(transformed, drawable)
+            ctx.fillStyle = "orange"
             ctx.beginPath()
-            ctx.fillRect(drawable.x, drawable.y, pointSize, pointSize)
+            ctx.arc(drawable.x + halfPointSize, drawable.y + halfPointSize, pointSize / 5, 0, 360)
             ctx.fill();
             ctx.closePath()
         }
@@ -75,26 +85,27 @@
     function zoom(e: WheelEvent) {
         const delta = e.deltaY
         scale += delta / 10
-        scale = Math.max(1, Math.min(5, scale));
-        pointSize = 5 * scale;
+        scale = Math.max(0.5, Math.min(5, scale));
+        pointSize = minimumPointSize * scale;
         redraw()
     }
 
     function drawGrid() {
         const numberOfColumns = windowWidth / pointSize
         const numberOfRows = windowHeight / pointSize
-        ctx.lineWidth = pointSize / 10
-        ctx.strokeStyle = `rgba(0,0,0, ${scale / 10}`;
+        const lineWidth = pointSize / 10
+        ctx.lineWidth = lineWidth
+        ctx.strokeStyle = `rgba(0,0,0, ${scale / 30}`;
         for (let i = 0; i < numberOfColumns; i++) {
             ctx.beginPath()
-            const x = i * pointSize
+            const x = i * pointSize + halfPointSize
             ctx.moveTo(x, 0);
             ctx.lineTo(x, windowHeight);
             ctx.closePath()
             ctx.stroke()
         }
         for (let i = 0; i < numberOfRows; i++) {
-            const y = i * pointSize
+            const y = i * pointSize + halfPointSize
             ctx.beginPath()
             ctx.moveTo(0, y);
             ctx.lineTo(windowWidth, y);
@@ -106,22 +117,46 @@
     const transformFakeToDrawable = (point: Point2D) => {
         const transformedX = point.x * pointSize
         const transformedY = point.y * pointSize
-        const closestGridX = Math.ceil(transformedX / pointSize) * pointSize
-        const closestGridY = Math.ceil(transformedY / pointSize) * pointSize
-        return {x: centerPosition.x + closestGridX, y: centerPosition.y - closestGridY}
+        const closestGridX = centerPosition.x + transformedX
+        const closestGridY = centerPosition.y - transformedY
+        return {x: Math.floor(closestGridX / pointSize) * pointSize, y: Math.floor(closestGridY / pointSize) * pointSize}
     }
 
     const transformRealToFake = (point: Point2D) => {
         const transformedX = point.x - centerPosition.x
         const transformedY = centerPosition.y - point.y
-        const closestGridX = Math.floor(transformedX / pointSize)
-        const closestGridY = Math.floor(transformedY / pointSize)
-        return {x: closestGridX, y: closestGridY + 1}
+        const closestGridX = Math.round(transformedX / pointSize)
+        const closestGridY = Math.round(transformedY / pointSize)
+        console.log(closestGridX, closestGridY)
+        return {x: closestGridX, y: closestGridY}
     }
+
+    onMount(async () => {
+        dpiFix()
+    })
 
     $: if (windowHeight) dpiFix()
     $: if (windowWidth) dpiFix()
     $: if (mousePosition) redraw()
+
+    function drawRoom(room: Room) {
+        ctx.lineWidth = pointSize
+        ctx.strokeStyle = "black"
+        ctx.beginPath()
+        const firstPoint = room.points[0]
+        const updatedFirstPoint = {...firstPoint, y: firstPoint.y}
+        const transformedFirstPoint = transformFakeToDrawable(updatedFirstPoint)
+        ctx.moveTo(transformedFirstPoint.x + halfPointSize, transformedFirstPoint.y + halfPointSize)
+        room.points.reduce((previous, next) => {
+            const updatedLastPoint = {...next, x: next.x + 1}
+            const transformedLastPoint = transformFakeToDrawable(updatedLastPoint)
+            ctx.lineTo(transformedLastPoint.x - halfPointSize, transformedLastPoint.y + halfPointSize)
+            return next
+        }, updatedFirstPoint)
+        ctx.moveTo(transformedFirstPoint.x, transformedFirstPoint.y)
+        ctx.closePath()
+        ctx.stroke()
+    }
 
 </script>
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth}/>
@@ -132,7 +167,7 @@
         on:mousemove={move}
         on:wheel={zoom}
 
-        style="background-color: orange"
+        style="background-color: rgba(255,165,0,0.24)"
 />
 <style>
     canvas {
