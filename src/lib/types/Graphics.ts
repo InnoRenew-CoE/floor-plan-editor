@@ -4,5 +4,6 @@ export type Point2D = {
 }
 
 export type Room = {
-    points: Point2D[]
+    points: Point2D[],
+    quality: string
 }

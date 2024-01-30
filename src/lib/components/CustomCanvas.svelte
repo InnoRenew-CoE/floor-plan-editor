@@ -5,28 +5,192 @@
     export let debug: boolean = true
 
     const testRoom: Room = {
-        points: [{x: 0, y: 0}, {x: 0, y: 5}, {x: 5, y: 5}, {x: 5, y: 0}]
+        quality: "good",
+        points: [{x: 0, y: 0}, {x: 0, y: 5}, {x: 5, y: 5}, {x: 5, y: 0},
+            {x: 5, y: 0}, {x: 10, y: 0}, {x: 10, y: -5}, {x: 0, y: -5}]
+    }
+    const secondTestRoom: Room = {
+        quality: "bad",
+        points: [{x: 0, y: -5}, {x: 20, y: -5}, {x: 20, y: -20}, {x: 0, y: -20}]
     }
 
     let canvas: HTMLCanvasElement;
     let ctx: CanvasRenderingContext2D;
     let windowHeight: number, windowWidth: number
 
-    const minimumPointSize = 50
-    let scale = 5.0;
+    const minimumPointSize = 20
+    let scale = 1.0;
     let pointSize = minimumPointSize
     let halfPointSize: number
     $: halfPointSize = pointSize / 2
 
     let centerPosition: Point2D = {x: 0, y: 0}
     let canvasOffset: Point2D = {x: 0, y: 0}
+    let zoomPoint: Point2D = centerPosition
     let mousePosition: Point2D = centerPosition
     let moveStartPosition: Point2D = centerPosition
 
-    function setCenter(){
+    function setCenter() {
         let clientWidth = canvas.clientWidth
         let clientHeight = canvas.clientHeight
         centerPosition = {x: clientWidth / 2, y: clientHeight / 2}
+    }
+
+
+    function move(event: MouseEvent) {
+        mousePosition = {x: event.clientX, y: event.clientY}
+        if (event.buttons == 1) { // Middle button = 1, Left = 0, Right = 2
+            let distanceX = event.clientX - moveStartPosition.x
+            let distanceY = event.clientY - moveStartPosition.y
+
+            canvasOffset.x += distanceX
+            canvasOffset.y += distanceY
+            moveStartPosition = {...mousePosition}
+        }
+    }
+
+    function redraw() {
+        if (ctx) {
+            ctx.clearRect(0, 0, 10000, 1000)
+            setCenter()
+            drawGrid()
+            drawRoom(testRoom)
+            drawRoom(secondTestRoom)
+
+            if (debug) {
+                const fakeCenter = transformRealToFake(centerPosition);
+                const transformedMouseFake = transformRealToFake(mousePosition);
+                const drawableCenter = transformFakeToDrawable(fakeCenter);
+                ctx.strokeStyle = "black"
+                ctx.lineWidth = 1
+                ctx.strokeText(`Mouse: ${mousePosition.x}, ${mousePosition.y}`, 20, 20)
+                ctx.strokeText(`Mouse: ${mousePosition.x - centerPosition.x}, ${centerPosition.y - mousePosition.y}`, 20, 40)
+                ctx.strokeText(`Mouse: ${transformedMouseFake.x}, ${transformedMouseFake.y}`, 20, 60)
+                ctx.strokeText(`Mouse: ${scale}x, ${pointSize}px`, 20, 80)
+            }
+
+            ctx.beginPath()
+            ctx.moveTo(0, 0)
+            ctx.lineTo(100, 100);
+            ctx.closePath();
+            ctx.stroke()
+
+            ctx.strokeStyle = "blue"
+            const mouseGridCoordinates: Point2D = transformRealToFake(mousePosition)
+            const drawableMouseCoordinates = transformFakeToDrawable(mouseGridCoordinates)
+
+            const transformedX = mousePosition.x - centerPosition.x
+            const transformedY = centerPosition.y - mousePosition.y
+            ctx.strokeText(`C: ${Math.round(canvasOffset.x)}px, ${Math.round(canvasOffset.y)}px`, mousePosition.x, mousePosition.y + 70)
+            ctx.strokeText(`A: ${mouseGridCoordinates.x}, ${mouseGridCoordinates.y}`, mousePosition.x, mousePosition.y + 60)
+            ctx.strokeText(`T: ${transformedX}, ${transformedY}`, mousePosition.x, mousePosition.y + 50)
+            ctx.strokeText(`R: ${mousePosition.x}, ${mousePosition.y}`, mousePosition.x, mousePosition.y + 40)
+
+            ctx.fillStyle = "rgba(150, 30, 20, .1)"
+            ctx.beginPath()
+            ctx.fillRect(drawableMouseCoordinates.x, drawableMouseCoordinates.y, pointSize, pointSize)
+            ctx.closePath()
+            ctx.fill()
+        }
+    }
+
+    function zoom(e: WheelEvent) {
+        const distanceCenterX = centerPosition.x - mousePosition.x
+        const delta = e.deltaY
+        scale += delta / 100
+        scale = Math.max(0.5, Math.min(5, scale));
+        pointSize = minimumPointSize * scale;
+        canvasOffset.x += distanceCenterX / 10 * Math.sign(delta);
+    }
+
+    function drawGrid() {
+        const numberOfColumns = windowWidth / pointSize
+        const numberOfRows = windowHeight / pointSize
+        const lineWidth = pointSize / 100;
+        ctx.lineWidth = lineWidth
+        ctx.strokeStyle = `rgba(0,0,0, ${scale / 10})`;
+        //ctx.strokeStyle = `rgba(0,0,0, 0)`;
+        for (let i = -windowHeight; i < windowWidth; i++) {
+            ctx.beginPath()
+            const x = i * pointSize + canvasOffset.x + halfPointSize - lineWidth / 2
+            ctx.strokeText(`${i}`, x - pointSize * 5 / 8, 50)
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, windowHeight);
+            ctx.closePath()
+            ctx.stroke()
+        }
+        for (let i = -windowWidth; i < windowHeight; i++) {
+            const y = -i * pointSize + canvasOffset.y - halfPointSize + lineWidth / 2
+            ctx.strokeText(`${i}`, 50, y + pointSize * 5 / 8)
+            ctx.beginPath()
+            ctx.moveTo(0, y);
+            ctx.lineTo(windowWidth, y);
+            ctx.closePath()
+            ctx.stroke()
+        }
+
+    }
+
+    const transformFakeToDrawable = (point: Point2D) => {
+        return {x: (point.x * pointSize + canvasOffset.x - halfPointSize), y: (-point.y * pointSize + canvasOffset.y) - halfPointSize}
+    }
+
+    const transformRealToFake = (point: Point2D) => {
+        const absolutePosition = {x: point.x - canvasOffset.x, y: canvasOffset.y - point.y}
+        return {x: Math.round(absolutePosition.x / pointSize), y: Math.round(absolutePosition.y / pointSize)}
+    }
+
+    onMount(async () => {
+        dpiFix()
+        canvasOffset = centerPosition
+    })
+
+    $: if (windowHeight) dpiFix()
+    $: if (windowWidth) dpiFix()
+    $: if (mousePosition) redraw()
+    $: if (pointSize) redraw()
+
+    function drawRoom(room: Room) {
+        ctx.lineWidth = pointSize
+        ctx.strokeStyle = "black"
+        ctx.beginPath()
+        const firstPoint = transformFakeToDrawable(room.points[0]);
+        let lastPoint: Point2D | undefined = undefined
+        for (let i = 0; i < room.points.length; i++) {
+            const previousPoint = room.points[i - 1];
+            const nextPoint = room.points[i + 1];
+            let transformedCurrent = transformFakeToDrawable(room.points[i])
+            transformedCurrent = {...transformedCurrent, x: transformedCurrent.x + halfPointSize, y: transformedCurrent.y + halfPointSize}
+            if (!previousPoint) {
+                ctx.beginPath()
+                ctx.moveTo(transformedCurrent.x, transformedCurrent.y)
+            } else {
+                const transformedPrevious = transformFakeToDrawable(previousPoint)
+                ctx.lineTo(transformedCurrent.x, transformedCurrent.y)
+                if (!nextPoint) {
+                    ctx.lineTo(transformedCurrent.x, transformedCurrent.y)
+                    lastPoint = transformedCurrent
+                    ctx.closePath()
+                }
+            }
+        }
+        const grd = ctx.createLinearGradient(firstPoint.x, lastPoint!.y, lastPoint!.x, firstPoint.y)
+        if (room.quality === "good") {
+            grd.addColorStop(0, "rgba(30, 255, 150, 1)");
+            grd.addColorStop(1, "rgba(30, 200, 100, 1)");
+        } else {
+            grd.addColorStop(0, "rgb(218,26,26)");
+            grd.addColorStop(1, "rgb(200,100,127)");
+        }
+        ctx.fillStyle = grd
+        ctx.save();
+        ctx.clip();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        ctx.lineWidth *= 1
+        ctx.stroke()
+
     }
 
     function dpiFix() {
@@ -44,153 +208,14 @@
         redraw()
     }
 
-    function move(event: MouseEvent) {
-        mousePosition = {x: event.pageX, y: event.pageY}
-        if (event.button == 1) { // Middle button
-            let distanceX = event.clientX - moveStartPosition.x
-            let distanceY = event.clientY - moveStartPosition.y
-        }
-    }
-
-    function redraw() {
-        if (ctx) {
-            ctx.clearRect(0, 0, 10000, 1000)
-            setCenter()
-            drawGrid()
-            drawRoom(testRoom)
-
-            if (debug) {
-                const fakeCenter = transformRealToFake(centerPosition);
-                const transformedMouseFake = transformRealToFake(mousePosition);
-                const drawableCenter = transformFakeToDrawable(fakeCenter);
-                ctx.strokeStyle = "black"
-                ctx.lineWidth = 1
-                ctx.strokeText(`Mouse: ${mousePosition.x}, ${mousePosition.y}`, 20, 20)
-                ctx.strokeText(`Mouse: ${mousePosition.x - centerPosition.x}, ${centerPosition.y - mousePosition.y}`, 20, 40)
-                ctx.strokeText(`Mouse: ${transformedMouseFake.x}, ${transformedMouseFake.y}`, 20, 60)
-                ctx.strokeText(`Mouse: ${scale}x, ${pointSize}px`, 20, 80)
-                ctx.beginPath()
-                ctx.fillStyle = "pink"
-                ctx.arc(centerPosition.x, centerPosition.y, pointSize / 2, 0, 360)
-                ctx.fill();
-                ctx.closePath()
-            }
-
-            ctx.beginPath()
-            ctx.moveTo(0, 0)
-            ctx.lineTo(100, 100);
-            ctx.closePath();
-            ctx.stroke()
-
-            const transformed = transformRealToFake(mousePosition);
-            const drawable = transformFakeToDrawable(transformed);
-            ctx.fillStyle = "orange"
-            ctx.beginPath()
-            ctx.arc(mousePosition.x, mousePosition.y, pointSize / 20, 0, 360)
-            ctx.fill();
-            ctx.closePath()
-
-            ctx.fillStyle = "indigo"
-            ctx.beginPath()
-            ctx.arc(drawable.x, drawable.y, pointSize / 10, 0, 360)
-            ctx.fill();
-            ctx.closePath()
-
-            ctx.strokeStyle = "blue"
-            const transformedX = mousePosition.x - centerPosition.x
-            const transformedY = centerPosition.y - mousePosition.y
-            ctx.strokeText(`R: ${transformedX}, ${transformedY}`, mousePosition.x, mousePosition.y - 110)
-            ctx.strokeText(`R: ${mousePosition.x}, ${mousePosition.y}`, mousePosition.x, mousePosition.y - 90)
-            ctx.strokeText(`T: ${transformed.x}, ${transformed.y}`, mousePosition.x, mousePosition.y -70)
-            ctx.strokeText(`D: ${drawable.x}, ${drawable.y}`, mousePosition.x, mousePosition.y - 50)
-        }
-    }
-
-    function zoom(e: WheelEvent) {
-        const delta = e.deltaY
-        scale += delta / 50
-        scale = Math.max(0.5, Math.min(5, scale));
-        pointSize = minimumPointSize * scale;
-    }
-
-    function drawGrid() {
-        const numberOfColumns = windowWidth / pointSize
-        const numberOfRows = windowHeight / pointSize
-        const lineWidth = pointSize / 100;
-        ctx.lineWidth = lineWidth
-        ctx.strokeStyle = `rgba(0,0,0, ${scale / 30}`;
-        for (let i = 0; i < numberOfColumns; i++) {
-            ctx.beginPath()
-            const x = i * pointSize
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, windowHeight);
-            ctx.closePath()
-            ctx.stroke()
-        }
-        for (let i = 0; i < numberOfRows; i++) {
-            const y = i * pointSize
-            ctx.beginPath()
-            ctx.moveTo(0, y);
-            ctx.lineTo(windowWidth, y);
-            ctx.closePath()
-            ctx.stroke()
-        }
-    }
-
-    const transformFakeToDrawable = (point: Point2D) => {
-        const transformedX = point.x * pointSize
-        const transformedY = point.y * pointSize
-        const closestGridX = centerPosition.x + transformedX
-        const closestGridY = centerPosition.y - transformedY
-        return {x: Math.floor(closestGridX / pointSize) * pointSize, y: Math.round(closestGridY / pointSize) * pointSize}
-    }
-
-    const transformRealToFake = (point: Point2D) => {
-        const transformedX = point.x - centerPosition.x
-        const transformedY = centerPosition.y - point.y
-        const closestGridX = Math.round(transformedX / pointSize)
-        const closestGridY = Math.round(transformedY / pointSize)
-        return {x: closestGridX, y: closestGridY}
-    }
-
-    onMount(async () => {
-        dpiFix()
-    })
-
-    $: if (windowHeight) dpiFix()
-    $: if (windowWidth) dpiFix()
-    $: if (mousePosition) redraw()
-    $: if (pointSize) redraw()
-
-    function drawRoom(room: Room) {
-        ctx.lineWidth = pointSize
-        ctx.strokeStyle = "black"
-        ctx.beginPath()
-        const firstPoint = room.points[0]
-        const updatedFirstPoint = {...firstPoint, y: firstPoint.y}
-        const transformedFirstPoint = transformFakeToDrawable(updatedFirstPoint)
-        ctx.moveTo(transformedFirstPoint.x, transformedFirstPoint.y)
-        room.points.reduce((previous, next) => {
-            const updatedLastPoint = {...next, x: next.x}
-            const transformedLastPoint = transformFakeToDrawable(updatedLastPoint)
-            ctx.lineTo(transformedLastPoint.x, transformedLastPoint.y)
-            return next
-        }, updatedFirstPoint)
-        ctx.moveTo(transformedFirstPoint.x, transformedFirstPoint.y)
-        ctx.closePath()
-        ctx.stroke()
-    }
-
 </script>
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth}/>
 
 <canvas
         bind:this={canvas}
         on:mousedown={e => (moveStartPosition = {x: e.clientX, y: e.clientY})}
+        on:mouseenter={e => (moveStartPosition = {x: e.clientX, y: e.clientY})}
         on:mousemove={move}
-        on:wheel={zoom}
-
-        style="background-color: rgba(255,165,0,0.24)"
 />
 <style>
     canvas {
