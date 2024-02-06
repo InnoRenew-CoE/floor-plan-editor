@@ -1,17 +1,41 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import {ActionState, currentActionState, currentLinesStore, GridPosition, type Line, type Point2D, type Room} from "$lib/types/Graphics";
+    import {fade} from "svelte/transition";
+    import {
+        ActionState,
+        type CanvasElement,
+        CanvasElementType,
+        currentActionState,
+        currentLinesStore,
+        currentlySelectedObject,
+        GridPosition,
+        type Line,
+        type Point2D,
+        type Room
+    } from "$lib/types/Graphics";
+    import Polygon from "polygon";
 
+    let mouseDown: boolean = false;
+    let toolbar: HTMLElement | undefined
     export let debug: boolean = true
+
+    const objects: CanvasElement[] = [{
+        type: CanvasElementType.Door,
+        position: {x: 0, y: 0},
+        rotation: 0
+    }];
 
     const testRoom: Room = {
         quality: "good",
         lines: [
-            {start: {x: 0, y: 0}, end: {x: 0, y: 5}},
-            {start: {x: 0, y: 5}, end: {x: 5, y: 5}},
-            {start: {x: 5, y: 5}, end: {x: 5, y: 0}},
-            {start: {x: 5, y: 0}, end: {x: 0, y: 0}},
-        ]
+            {start: {x: -5, y: -5}, end: {x: -5, y: 5}},
+            {start: {x: -5, y: 5}, end: {x: 5, y: 5}},
+            {start: {x: 5, y: 5}, end: {x: 5, y: -5}},
+            {start: {x: 5, y: -5}, end: {x: -5, y: -5}},
+        ],
+        position: {x: 0, y: 0},
+        rotation: 0,
+        type: CanvasElementType.Room
     }
     let rooms: Room[] = [testRoom];
 
@@ -49,6 +73,7 @@
             canvasOffset.y += distanceY
             moveStartPosition = {...mousePosition}
         }
+        if (mouseDown) onDrag()
     }
 
     function redraw() {
@@ -57,9 +82,11 @@
             setCenter()
             drawGrid()
             rooms.forEach(drawRoom)
+            drawObjects()
+
             const first = $currentLinesStore[0]
             if (first) {
-                ctx.strokeStyle = "black"
+                ctx.strokeStyle = "orange"
                 ctx.lineWidth = lineWidth
                 const transformed = transformFakeToDrawable(first.start);
                 ctx.beginPath()
@@ -151,15 +178,27 @@
     $: if (mousePosition) drawCurrentLine()
     $: if (pointSize) redraw()
     $: if ($currentActionState) redraw()
+    $: if ($currentlySelectedObject) redraw()
 
     function drawRoom(room: Room) {
+        colorRoom(room)
         ctx.beginPath()
         room.lines.forEach(drawLine)
         ctx.strokeStyle = "black"
         ctx.lineWidth = lineWidth
         ctx.stroke();
-        colorRoom(room)
-        room.lines.forEach((line) => displayLineDistance(line))
+        const polygon = new Polygon(room.lines.map(x => x.start));
+        const polygonArea = polygon.area()
+        ctx.fillStyle = "white"
+        room.lines.forEach((line) => displayLineDistance(line, undefined, polygon))
+        const polygonCenter = polygon.center()
+        const roomCenter = {x: polygonCenter.x, y: polygonCenter.y}
+        const transformed = transformFakeToDrawable(roomCenter);
+        const text = `${Math.abs(polygonArea / (pointSize * pointSize) * 100).toFixed(1)}m`;
+        const metrics = ctx.measureText(text);
+        ctx.fillText(text, transformed.x, transformed.y)
+        ctx.font = `${halfPointSize * 0.8}px Arial`
+        ctx.fillText("2", transformed.x + metrics.actualBoundingBoxRight + 5, transformed.y - metrics.fontBoundingBoxAscent)
     }
 
     function colorRoom(room: Room) {
@@ -205,19 +244,23 @@
         // ctx.fillText(`${JSON.stringify(direction)} = ${xPos, yPos}`, endTransformed.x + 200, endTransformed.y + 0.1 * direction.y)
     }
 
-    function displayLineDistance(line: Line, textPosition: Point2D | undefined = undefined) {
+    function displayLineDistance(line: Line, textPosition: Point2D | undefined = undefined, polygon: Polygon | undefined = undefined) {
         const {start, end} = line
-        const direction = getLineDirection(line);
+        let direction = getLineDirection(line);
         let xAdd = 0, yAdd = 0;
         const distance = Math.sqrt(Math.abs((start.x - end.x)) ** 2 + Math.abs(start.y - end.y) ** 2);
         const centerPoint = {x: (end.x + start.x) / 2, y: (end.y + start.y) / 2}
         const transformedCenter = transformFakeToDrawable(centerPoint);
 
-        if (direction.y == 0) yAdd = halfPointSize
-        if (direction.x < 0) yAdd = -halfPointSize
-        if (direction.y > 0) xAdd = pointSize
-        if (direction.y < 0) xAdd = -pointSize
-        ctx.font = `${halfPointSize * 1.25}px Verdana`;
+        if (polygon) {
+            const {x, y} = polygon.center();
+            const polyCenter: Point2D = {x: x, y: y}
+            direction = getLineDirection({start: centerPoint, end: polyCenter})
+        }
+        xAdd = direction.x === 0 ? 0 : Math.sign(direction.x) * pointSize;
+        yAdd = direction.y === 0 ? 0 : -Math.sign(direction.y) * halfPointSize * 1.25;
+
+        ctx.font = `${halfPointSize}px Verdana`;
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
         ctx.fillText(`${(distance / 2).toFixed(1)}m`, textPosition?.x ?? (transformedCenter.x + xAdd), textPosition?.y ?? (transformedCenter.y + yAdd))
@@ -254,9 +297,14 @@
             if (JSON.stringify(gridPosition) !== JSON.stringify(existingLine.start)) {
                 existingLine.end = gridPosition;
                 if (JSON.stringify(existingLine.end) === JSON.stringify($currentLinesStore[0].start)) {
+                    const polygon = new Polygon($currentLinesStore.map(x => x.end));
+                    const center = polygon.center()
                     const newRoom: Room = {
                         lines: [...$currentLinesStore],
-                        quality: Math.random() > 0.5 ? "good" : "bad"
+                        quality: Math.random() > 0.5 ? "good" : "bad",
+                        position: {x: center.x, y: center.y},
+                        rotation: 0,
+                        type: CanvasElementType.Door,
                     }
                     $currentLinesStore = []
                     $currentActionState = ActionState.None
@@ -269,6 +317,17 @@
                 }
                 return
             }
+        } else {
+            const area = [
+                {x: gridPosition.x - 2, y: gridPosition.y - 2},
+                {x: gridPosition.x - 2, y: gridPosition.y + 2},
+                {x: gridPosition.x + 2, y: gridPosition.y + 2},
+                {x: gridPosition.x + 2, y: gridPosition.y - 2},
+                {x: gridPosition.x - 2, y: gridPosition.y - 2},
+            ]
+            const polygon = new Polygon(area);
+            const firstObjectOnGridPosition = objects.find(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
+            $currentlySelectedObject = firstObjectOnGridPosition;
         }
     }
 
@@ -292,19 +351,88 @@
         }
     }
 
+    let toolbarPosition: Point2D = {x: 0, y: 0}
+
+    function drawObjects() {
+        for (let canvasObject of objects) {
+            if (canvasObject.type === CanvasElementType.Door) {
+                const doorCenter = transformFakeToDrawable(canvasObject.position)
+                const rotation = canvasObject.rotation
+                toolbarPosition = doorCenter
+                ctx.strokeStyle = $currentlySelectedObject === canvasObject ? "orange" : "black";
+                ctx.lineWidth = pointSize * ($currentlySelectedObject === canvasObject ? 0.2 : 0.15);
+                ctx.beginPath()
+                ctx.moveTo(doorCenter.x, doorCenter.y)
+                ctx.arc(doorCenter.x, doorCenter.y, 2 * pointSize, Math.PI * (rotation - 0.5), Math.PI * rotation)
+                ctx.stroke()
+                ctx.strokeStyle = "white"
+                ctx.lineWidth = lineWidth
+                ctx.lineCap = "square"
+                ctx.beginPath()
+                ctx.moveTo(doorCenter.x, doorCenter.y);
+                ctx.lineTo(doorCenter.x + 2 * pointSize, doorCenter.y);
+                ctx.stroke()
+            }
+        }
+    }
+
+    function onDrag() {
+        const currentObject = $currentlySelectedObject;
+        if (!currentObject) return;
+        const drawableMousePosition = transformRealToFake(mousePosition)
+        currentObject.position = drawableMousePosition
+    }
+
 </script>
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth}/>
-
 <canvas
         bind:this={canvas}
         on:click={onClick}
-        on:mousedown={e => (moveStartPosition = {x: e.clientX, y: e.clientY})}
+        on:mousedown={e =>{
+            moveStartPosition = {x: e.clientX, y: e.clientY}
+            mouseDown = e.button === 0;
+        }}
         on:mouseenter={e => (moveStartPosition = {x: e.clientX, y: e.clientY})}
         on:mousemove={move}
+        on:mouseup={() => {mouseDown = false}}
 />
+{#if toolbarPosition && $currentlySelectedObject}
+    <div in:fade out:fade
+         bind:this={toolbar} id="toolbar"
+         style="left: {toolbarPosition.x - ((toolbar?.clientWidth / 2) ?? 0)}px; top: {toolbarPosition.y + 2* pointSize}px; transition: none">
+        <div class="button"><img src="/rotate.svg" on:click={() =>($currentlySelectedObject.rotation += 0.5)}></div>
+        <div class="button"><img src="/trash.svg"></div>
+    </div>
+{/if}
 <style>
     canvas {
         position: relative;
         flex: 1;
+    }
+
+    #toolbar {
+        position: absolute;
+        display: flex;
+        gap: .5em;
+    }
+
+    #toolbar > .button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: white;
+        box-shadow: 0 0 5px 5px rgba(0, 0, 0, 0.05);
+        border-radius: 5px;
+    }
+
+    .button img {
+        width: 1em;
+        height: 1em;
+        padding: .5em;
+    }
+
+    #toolbar > .button:hover {
+        transform: scale(1.1);
+        cursor: pointer;
     }
 </style>

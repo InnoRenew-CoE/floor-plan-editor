@@ -6,10 +6,19 @@ export type Point2D = {
     y: number
 }
 
-export type Room = {
+export type Room = CanvasElement & {
     lines: Line[],
-    quality: string
+    quality: string,
 }
+
+export type CanvasElement = {
+    position: Point2D,
+    rotation: Number,
+    type: CanvasElementType
+}
+
+export type Door = CanvasElement
+export type Window = CanvasElement
 
 export type Line = {
     start: Point2D,
@@ -18,7 +27,7 @@ export type Line = {
 }
 
 export const currentActionState: Writable<ActionState> = writable(ActionState.None)
-export const currentRoomStore: Writable<Room | undefined> = writable();
+export const currentlySelectedObject: Writable<CanvasElement | undefined> = writable();
 export const currentLinesStore: Writable<Line[]> = writable([]);
 
 export enum ActionState {
@@ -28,4 +37,10 @@ export enum ActionState {
 
 export enum GridPosition {
     Left, Right, Center, Top, Bottom
+}
+
+export enum CanvasElementType {
+    Door = "Door",
+    Window = "Window",
+    Room = "Room"
 }
