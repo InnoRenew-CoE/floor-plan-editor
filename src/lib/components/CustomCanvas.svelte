@@ -21,12 +21,12 @@
 
     const objects: CanvasElement[] = [{
         type: CanvasElementType.Door,
-        position: {x: 0, y: 0},
+        position: {x: -4, y: -5},
         rotation: 0
     }];
 
     const testRoom: Room = {
-        quality: "good",
+        quality: 0,
         lines: [
             {start: {x: -5, y: -5}, end: {x: -5, y: 5}},
             {start: {x: -5, y: 5}, end: {x: 5, y: 5}},
@@ -78,7 +78,7 @@
 
     function redraw() {
         if (ctx) {
-            ctx.clearRect(0, 0, 10000, 1000)
+            ctx.clearRect(0, 0, 10000, 10000)
             setCenter()
             drawGrid()
             rooms.forEach(drawRoom)
@@ -109,7 +109,7 @@
 
             ctx.fillStyle = "rgba(150, 30, 20, .1)"
             ctx.beginPath()
-            ctx.arc(drawableMouseCoordinates.x, drawableMouseCoordinates.y, pointSize, 0, 360)
+            ctx.arc(drawableMouseCoordinates.x, drawableMouseCoordinates.y, halfPointSize, 0, 360)
             ctx.closePath()
             ctx.fill()
         }
@@ -168,8 +168,19 @@
     }
 
     onMount(async () => {
+        const floorRenderer = new FloorRenderer(canvas);
         dpiFix()
         canvasOffset = centerPosition
+
+        let currentSign = 1;
+        setInterval(() => {
+            const room = rooms[0];
+            const quality = room.quality
+            if (quality >= 255) currentSign = -1;
+            if (quality == 0) currentSign = 1;
+            room.quality += currentSign;
+            redraw();
+        }, 1000);
     })
 
     $: if (windowHeight) dpiFix()
@@ -208,13 +219,8 @@
         const transformedStartPoint = transformFakeToDrawable(startPoint);
         const transformedLastPoint = transformFakeToDrawable(lastPoint);
         const grd = ctx.createLinearGradient(transformedStartPoint.x, transformedStartPoint!.y, transformedLastPoint.x, transformedLastPoint.y)
-        if (room.quality === "good") {
-            grd.addColorStop(0, "rgba(30, 255, 150, 0.8)");
-            grd.addColorStop(1, "rgba(30, 200, 100, 0.8)");
-        } else {
-            grd.addColorStop(0, "rgb(218,26,26)");
-            grd.addColorStop(1, "rgb(200,100,127)");
-        }
+        grd.addColorStop(0, `rgb(${room.quality}, ${Math.abs(255 - room.quality)}, 0, 1`)
+        grd.addColorStop(1, `rgb(${room.quality}, ${Math.abs(255 - room.quality)}, 100, 1`)
         ctx.fillStyle = grd
         ctx.beginPath()
         ctx.moveTo(transformedStartPoint.x, transformedStartPoint.y)
@@ -301,7 +307,7 @@
                     const center = polygon.center()
                     const newRoom: Room = {
                         lines: [...$currentLinesStore],
-                        quality: Math.random() > 0.5 ? "good" : "bad",
+                        quality: Math.random(),
                         position: {x: center.x, y: center.y},
                         rotation: 0,
                         type: CanvasElementType.Door,
@@ -361,12 +367,15 @@
                 toolbarPosition = doorCenter
                 ctx.strokeStyle = $currentlySelectedObject === canvasObject ? "orange" : "black";
                 ctx.lineWidth = pointSize * ($currentlySelectedObject === canvasObject ? 0.2 : 0.15);
+                ctx.strokeStyle = "rgba(255,255,255, .5)"
+                ctx.setLineDash([5])
                 ctx.beginPath()
                 ctx.moveTo(doorCenter.x, doorCenter.y)
                 ctx.arc(doorCenter.x, doorCenter.y, 2 * pointSize, Math.PI * (rotation - 0.5), Math.PI * rotation)
                 ctx.stroke()
+                ctx.setLineDash([])
                 ctx.strokeStyle = "white"
-                ctx.lineWidth = lineWidth
+                ctx.lineWidth = lineWidth * 1.05
                 ctx.lineCap = "square"
                 ctx.beginPath()
                 ctx.moveTo(doorCenter.x, doorCenter.y);
@@ -379,8 +388,7 @@
     function onDrag() {
         const currentObject = $currentlySelectedObject;
         if (!currentObject) return;
-        const drawableMousePosition = transformRealToFake(mousePosition)
-        currentObject.position = drawableMousePosition
+        currentObject.position = transformRealToFake(mousePosition)
     }
 
 </script>

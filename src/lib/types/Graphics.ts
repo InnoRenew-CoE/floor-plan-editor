@@ -8,7 +8,7 @@ export type Point2D = {
 
 export type Room = CanvasElement & {
     lines: Line[],
-    quality: string,
+    quality: number,
 }
 
 export type CanvasElement = {
