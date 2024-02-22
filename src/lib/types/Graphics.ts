@@ -26,6 +26,9 @@ export type Line = {
     // type: string
 }
 
+export const roomStore: Writable<Room[]> = writable([]);
+export const objectStore: Writable<CanvasElement[]> = writable([]);
+
 export const currentActionState: Writable<ActionState> = writable(ActionState.None)
 export const currentlySelectedObject: Writable<CanvasElement | undefined> = writable();
 export const currentLinesStore: Writable<Line[]> = writable([]);
