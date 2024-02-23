@@ -1,5 +1,6 @@
 <script lang="ts">
-    import {ActionState, CanvasElementType, currentActionState, objectStore} from "$lib/types/Graphics";
+    import {ActionState, CanvasElementType, currentActionState, objectStore, roomStore} from "$lib/types/Graphics";
+    import {fade} from "svelte/transition";
 
     type Button = {
         icon: string,
@@ -9,10 +10,13 @@
     const buttons: Button[] = [
         {icon: "/point.svg", action: drawLine},
         {icon: "/doors.svg", action: addDoor},
+        {icon: "/window.svg", action: addWindow},
+        {icon: "/import.svg", action: importData},
+        {icon: "/export.svg", action: exportData},
     ];
 
     function drawLine() {
-        $currentActionState = ActionState.Drawing;
+        $currentActionState = $currentActionState === ActionState.Drawing ? ActionState.None : ActionState.Drawing;
     }
 
     function addDoor() {
@@ -25,12 +29,48 @@
             return objects;
         })
     }
-</script>
 
+    function addWindow() {
+        objectStore.update(objects => {
+            objects.push({
+                position: {x: 0, y: 0},
+                rotation: 0,
+                type: CanvasElementType.Window,
+            })
+            return objects;
+        })
+    }
+
+    function importData() {
+
+    }
+
+    function exportData() {
+        const data = {
+            rooms: $roomStore,
+            objects: $objectStore
+        }
+        const json = JSON.stringify(data);
+        const blob = new File([json], "floor-plan.json", {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        document.body.appendChild(a);
+        a.style.display = "none";
+        a.href = url;
+        a.download = "floor-plan.json";
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+</script>
 <div id="container">
+    {#if $currentActionState === ActionState.Drawing}
+        <div in:fade out:fade id="drawing-indicator"></div>
+    {/if}
     {#each buttons as button, i}
         <div class="button-container">
-            <div class="button" style="mask-image: url('{button.icon}')" on:click={button.action}></div>
+            <button class="button" style="mask-image: url('{button.icon}')" on:click={button.action}></button>
         </div>
     {/each}
 </div>
@@ -76,6 +116,15 @@
         align-items: center;
         justify-content: center;
         padding: 0 1em;
+    }
+
+    #drawing-indicator {
+        position: absolute;
+        top: .25em;
+        left: 2.25em;
+        padding: .25em;
+        background-color: hotpink;
+        border-radius: 100%;
     }
 
 </style>

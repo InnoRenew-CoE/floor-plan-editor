@@ -9,6 +9,7 @@ export type Point2D = {
 export type Room = CanvasElement & {
     lines: Line[],
     quality: number,
+    name: string
 }
 
 export type CanvasElement = {
@@ -31,6 +32,7 @@ export const objectStore: Writable<CanvasElement[]> = writable([]);
 
 export const currentActionState: Writable<ActionState> = writable(ActionState.None)
 export const currentlySelectedObject: Writable<CanvasElement | undefined> = writable();
+export const currentlySelectedRoom: Writable<Room | undefined> = writable();
 export const currentLinesStore: Writable<Line[]> = writable([]);
 
 export enum ActionState {

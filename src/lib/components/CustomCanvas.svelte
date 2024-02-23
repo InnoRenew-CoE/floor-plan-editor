@@ -1,7 +1,18 @@
 <script lang="ts">
     import {onMount} from "svelte";
     import {fade} from "svelte/transition";
-    import {ActionState, CanvasElementType, currentActionState, currentLinesStore, currentlySelectedObject, objectStore, type Point2D, type Room} from "$lib/types/Graphics";
+    import {
+        ActionState,
+        CanvasElementType,
+        currentActionState,
+        currentLinesStore,
+        currentlySelectedObject,
+        currentlySelectedRoom,
+        objectStore,
+        type Point2D,
+        type Room,
+        roomStore
+    } from "$lib/types/Graphics";
     import Polygon from "polygon";
     import {FloorRenderer} from "$lib/components/FloorRenderer";
 
@@ -36,7 +47,8 @@
     }
 
     onMount(async () => {
-        floorRenderer = new FloorRenderer(canvas);
+        floorRenderer = new FloorRenderer(canvas)
+        floorRenderer.rooms = [floorRenderer.testRoom];
         ctx = floorRenderer.ctx;
         floorRenderer.dpiFix(windowWidth, windowHeight);
         floorRenderer.canvasOffset = floorRenderer.centerPosition
@@ -91,14 +103,15 @@
                     const center = polygon.center()
                     const newRoom: Room = {
                         lines: [...$currentLinesStore],
-                        quality: Math.random(),
+                        quality: 0,
                         position: {x: center.x, y: center.y},
                         rotation: 0,
-                        type: CanvasElementType.Door,
+                        type: CanvasElementType.Room,
+                        name: "No Name"
                     }
                     $currentLinesStore = []
                     $currentActionState = ActionState.None
-                    floorRenderer.rooms = [...floorRenderer.rooms, newRoom]
+                    roomStore.update(x => [...x, newRoom]);
                 } else {
                     currentLinesStore.update(lines => {
                         lines.push({start: {x: gridPosition.x, y: gridPosition.y}, end: {x: gridPosition.x, y: gridPosition.y}});
@@ -119,6 +132,10 @@
             const firstObjectOnGridPosition = floorRenderer.objects.find(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
             $currentlySelectedObject = firstObjectOnGridPosition;
             toolbarPosition = mousePosition
+            if (!firstObjectOnGridPosition) {
+                const room = floorRenderer.rooms.find(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
+                $currentlySelectedRoom = room;
+            }
         }
     }
 
@@ -145,7 +162,7 @@
         toolbarPosition = mousePosition
     }
 
-    function rotateObject() {
+    function rotate() {
         const object = $currentlySelectedObject;
         if (!object) return
         object.rotation += 0.5
@@ -153,7 +170,32 @@
         floorRenderer?.redraw();
     }
 
-    $: if(floorRenderer) floorRenderer.objects = $objectStore
+    function trash() {
+        const currentRoom = $currentlySelectedRoom;
+        if (currentRoom) {
+            roomStore.update(rooms => {
+                const index = rooms.indexOf(currentRoom);
+                rooms.splice(index, 1);
+                return rooms;
+            })
+        }
+        const currentObject = $currentlySelectedObject;
+        if (currentObject) {
+            objectStore.update(objects => {
+                const index = objects.indexOf(currentObject);
+                objects.splice(index, 1);
+                return objects;
+            })
+        }
+
+        $currentlySelectedRoom = undefined;
+        $currentlySelectedObject = undefined;
+    }
+
+    $: console.log($roomStore);
+
+    $: if (floorRenderer) floorRenderer.objects = $objectStore
+    $: if (floorRenderer) floorRenderer.rooms = $roomStore
 </script>
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth}/>
 <canvas
@@ -167,12 +209,15 @@
         on:mousemove={move}
         on:mouseup={() => {mouseDown = false}}
 />
-{#if toolbarPosition && $currentlySelectedObject}
+{#if toolbarPosition && ($currentlySelectedObject || $currentlySelectedRoom)}
     <div in:fade out:fade
          bind:this={toolbar} id="toolbar"
          style="left: {toolbarPosition.x - ((toolbar?.clientWidth / 2) ?? 0)}px; top: {toolbarPosition.y + 2* pointSize}px; transition: none">
-        <div class="button"><img src="/rotate.svg" on:click={() =>rotateObject()}></div>
-        <div class="button"><img src="/trash.svg"></div>
+        {#if $currentlySelectedRoom}
+            <input bind:value={$currentlySelectedRoom.name}/>
+        {/if}
+        <div class="button"><img src="/rotate.svg" on:click={() =>rotate()}></div>
+        <div class="button"><img src="/trash.svg" on:click={()=>trash()}></div>
     </div>
 {/if}
 <style>

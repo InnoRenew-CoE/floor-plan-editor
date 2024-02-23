@@ -8,13 +8,16 @@ export class FloorRenderer {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     interval: number = 0;
+    displayMeasurements: boolean = false;
 
     centerPosition: Point2D = {x: 0, y: 0}
     canvasOffset: Point2D = {x: 0, y: 0}
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, objects: [CanvasElement] = [], rooms: [Room] = []) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d")!!;
+        this.objects = objects;
+        this.rooms = rooms;
         console.log(`Floor Renderer constructor! ${this.canvas} ... ${this.ctx}`)
         /*
         let currentSign = 1;
@@ -59,7 +62,8 @@ export class FloorRenderer {
         ],
         position: {x: 0, y: 0},
         rotation: 0,
-        type: CanvasElementType.Room
+        type: CanvasElementType.Room,
+        name: "Test room"
     }
     public rooms: Room[] = [this.testRoom];
 
@@ -123,15 +127,24 @@ export class FloorRenderer {
         const polygon = new Polygon(room.lines.map(x => x.start));
         const polygonArea = polygon.area()
         ctx.fillStyle = "white"
-        room.lines.forEach((line) => this.displayLineDistance(line, undefined, polygon))
         const polygonCenter = polygon.center()
         const roomCenter = {x: polygonCenter.x, y: polygonCenter.y}
         const transformed = this.transformFakeToDrawable(roomCenter);
-        const text = `${Math.abs(polygonArea / (this.pointSize * this.pointSize) * 100).toFixed(1)}m`;
+
+        if (this.displayMeasurements) {
+            room.lines.forEach((line) => this.displayLineDistance(line, undefined, polygon))
+            const roomCenter = {x: polygonCenter.x, y: polygonCenter.y}
+            const transformed = this.transformFakeToDrawable(roomCenter);
+            const text = `${Math.abs(polygonArea / (this.pointSize * this.pointSize) * 100).toFixed(1)}m`;
+            const metrics = this.ctx.measureText(text);
+            ctx.fillText(text, transformed.x, transformed.y)
+            ctx.font = `${this.halfPointSize * 0.8}px Arial`
+            ctx.fillText("2", transformed.x + metrics.actualBoundingBoxRight + 5, transformed.y - metrics.fontBoundingBoxAscent)
+        }
+        const text = room.name;
         const metrics = this.ctx.measureText(text);
-        ctx.fillText(text, transformed.x, transformed.y)
-        ctx.font = `${this.halfPointSize * 0.8}px Arial`
-        ctx.fillText("2", transformed.x + metrics.actualBoundingBoxRight + 5, transformed.y - metrics.fontBoundingBoxAscent)
+        ctx.font = `${this.pointSize * 0.8}px Arial`
+        ctx.fillText(room.name, transformed.x - metrics.width / 2, transformed.y)
     }
 
     public colorRoom(room: Room) {
@@ -195,33 +208,60 @@ export class FloorRenderer {
     }
 
     public drawObjects() {
+        let ctx = this.ctx
+        if (!ctx) return;
         for (let canvasObject of this.objects) {
+            const objectDistance = 2;
+            let xAdd = 0;
+            let yAdd = 0;
+            if (canvasObject.rotation == 0) xAdd = 1;
+            if (canvasObject.rotation == 0.5) yAdd = 1;
+            if (canvasObject.rotation == 1) xAdd = -1;
+            if (canvasObject.rotation == 1.5) yAdd = -1;
+            const objectCenter = this.transformFakeToDrawable(canvasObject.position)
+            const rotation = canvasObject.rotation
             if (canvasObject.type === CanvasElementType.Door) {
-                const doorCenter = this.transformFakeToDrawable(canvasObject.position)
-                const rotation = canvasObject.rotation
-                let ctx = this.ctx
+                const doorGradient = ctx.createLinearGradient(objectCenter.x, objectCenter.y,
+                    objectCenter.x + 2 * this.pointSize, objectCenter.y + 2 * this.pointSize)
+                doorGradient.addColorStop(0, "rgba(255,126,15,0.28)")
+                doorGradient.addColorStop(1, "rgb(255,178,112)")
                 ctx.strokeStyle = "black";
+                ctx.strokeStyle = doorGradient
                 ctx.lineWidth = this.pointSize * 0.15
                 ctx.setLineDash([this.lineWidth])
                 ctx.beginPath()
-                ctx.moveTo(doorCenter.x, doorCenter.y)
-                ctx.arc(doorCenter.x, doorCenter.y, 2 * this.pointSize, Math.PI * (rotation - 0.5), Math.PI * rotation)
+                ctx.moveTo(objectCenter.x, objectCenter.y)
+                ctx.arc(objectCenter.x, objectCenter.y, 2 * this.pointSize, Math.PI * (rotation - 0.5), Math.PI * rotation)
                 ctx.stroke()
                 ctx.setLineDash([])
                 ctx.lineWidth = this.lineWidth
                 ctx.lineCap = "square"
+                ctx.strokeStyle = "rgb(255,178,112)"
                 ctx.beginPath()
-                ctx.moveTo(doorCenter.x, doorCenter.y);
-                const doorDistance = 2;
-                let xAdd = 0;
-                let yAdd = 0;
-                if(canvasObject.rotation == 0) xAdd = doorDistance;
-                if(canvasObject.rotation == 0.5) yAdd = doorDistance;
-                if(canvasObject.rotation == 1) xAdd = -doorDistance;
-                if(canvasObject.rotation == 1.5) yAdd = -doorDistance;
-
-                ctx.lineTo(doorCenter.x + xAdd * this.pointSize, doorCenter.y + yAdd * this.pointSize);
+                ctx.moveTo(objectCenter.x, objectCenter.y);
+                ctx.lineTo(objectCenter.x + xAdd * objectDistance * this.pointSize, objectCenter.y + yAdd * objectDistance * this.pointSize);
                 ctx.stroke()
+            } else if (canvasObject.type === CanvasElementType.Window) {
+                const windowWidth = 0.25;
+                const width = (xAdd !== 0 ? objectDistance : windowWidth) * this.pointSize;
+                const height = (yAdd !== 0 ? objectDistance : windowWidth) * this.pointSize
+                const windowGradient = ctx.createLinearGradient(objectCenter.x, objectCenter.y, objectCenter.x + width, objectCenter.y + height)
+                windowGradient.addColorStop(0, "rgb(73,157,225)")
+                windowGradient.addColorStop(1, "rgb(73,225,188)")
+                ctx.lineCap = "square"
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = this.lineWidth / 2;
+                ctx.strokeRect(
+                    objectCenter.x - this.lineWidth / 2, objectCenter.y - this.lineWidth / 2,
+                    width, height
+                );
+                ctx.fillStyle = windowGradient
+                ctx.fillRect(
+                    objectCenter.x - this.lineWidth / 2, objectCenter.y - this.lineWidth / 2,
+                    (xAdd !== 0 ? objectDistance : windowWidth) * this.pointSize,
+                    (yAdd !== 0 ? objectDistance : windowWidth) * this.pointSize
+                );
+
             }
         }
     }
