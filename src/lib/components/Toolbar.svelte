@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {ActionState, CanvasElementType, currentActionState, objectStore, roomStore} from "$lib/types/Graphics";
+    import {ActionState, type CanvasElement, CanvasElementType, currentActionState, objectStore, type Room, roomStore} from "$lib/types/Graphics";
     import {fade} from "svelte/transition";
 
     type Button = {
@@ -9,7 +9,8 @@
 
     const buttons: Button[] = [
         {icon: "/point.svg", action: drawLine},
-        {icon: "/doors.svg", action: addDoor},
+        {icon: "/doors.svg", action: () => addDoor(false)},
+        {icon: "/double-doors.svg", action: () => addDoor(true)},
         {icon: "/window.svg", action: addWindow},
         {icon: "/import.svg", action: importData},
         {icon: "/export.svg", action: exportData},
@@ -19,12 +20,12 @@
         $currentActionState = $currentActionState === ActionState.Drawing ? ActionState.None : ActionState.Drawing;
     }
 
-    function addDoor() {
+    function addDoor(double: Boolean = false) {
         objectStore.update(objects => {
             objects.push({
                 position: {x: 0, y: 0},
                 rotation: 0,
-                type: CanvasElementType.Door,
+                type: double ? CanvasElementType.DoubleDoor : CanvasElementType.Door,
             })
             return objects;
         })
@@ -42,6 +43,17 @@
     }
 
     function importData() {
+        const uploadElement = document.createElement("input");
+        uploadElement.type = "file";
+        uploadElement.style.display = "none";
+        uploadElement.click();
+        uploadElement.onchange = async (event) => {
+            const file = uploadElement.files.item(0);
+            const json: { rooms: Room[], objects: CanvasElement[] } = JSON.parse(await file.text());
+            roomStore.set(json.rooms);
+            objectStore.set(json.objects)
+            uploadElement.remove();
+        }
 
     }
 

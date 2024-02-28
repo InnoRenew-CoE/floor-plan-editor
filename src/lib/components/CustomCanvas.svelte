@@ -129,11 +129,11 @@
                 {x: gridPosition.x - 2, y: gridPosition.y - 2},
             ]
             const polygon = new Polygon(area);
-            const firstObjectOnGridPosition = floorRenderer.objects.find(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
+            const firstObjectOnGridPosition = floorRenderer.objects.findLast(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
             $currentlySelectedObject = firstObjectOnGridPosition;
             toolbarPosition = mousePosition
             if (!firstObjectOnGridPosition) {
-                const room = floorRenderer.rooms.find(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
+                const room = floorRenderer.rooms.findLast(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
                 $currentlySelectedRoom = room;
             }
         }
@@ -158,7 +158,7 @@
     function onDrag() {
         const currentObject = $currentlySelectedObject;
         if (!currentObject) return;
-        currentObject.position = floorRenderer.transformRealToFake({x: mousePosition.x - 10, y: mousePosition.y + 10})
+        currentObject.position = floorRenderer.transformRealToFake({x: mousePosition.x + pointSize, y: mousePosition.y + pointSize})
         toolbarPosition = mousePosition
     }
 
