@@ -1,3 +1,10 @@
+# Floor Plan Editor
+<p align="center">
+<img src="https://github.com/MihaelBercic/grafana-floor-panel/assets/2729743/85c78481-6194-4d88-a6c5-f68d0a96cb8f" height="100px">
+<img src="https://github.com/MihaelBercic/grafana-floor-panel/assets/2729743/6e821372-da46-4ad1-8b2e-b0f4fdde068a" height="100px">
+</p>
+
+
 # About
 This project is a web based floor plan renderer that exports floor plans to a JSON compatible imports for Grafana Floor Plan plugin.
 <p> The plugin repository is available at : https://github.com/InnoRenew-CoE/grafana-floor-panel </p>
