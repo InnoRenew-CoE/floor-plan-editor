@@ -59,7 +59,7 @@
     $: if (windowWidth) floorRenderer.dpiFix(windowWidth, windowHeight);
     $: if (mousePosition) {
         floorRenderer?.redraw()
-        floorRenderer?.drawGrid(canvas.clientWidth, canvas.clientHeight);
+        // floorRenderer?.drawGrid(canvas.clientWidth, canvas.clientHeight);
         drawCurrentLine()
 
         if (floorRenderer) {
@@ -192,8 +192,6 @@
         $currentlySelectedObject = undefined;
     }
 
-    $: console.log($roomStore);
-
     $: if (floorRenderer) floorRenderer.objects = $objectStore
     $: if (floorRenderer) floorRenderer.rooms = $roomStore
 </script>
@@ -216,8 +214,8 @@
         {#if $currentlySelectedRoom}
             <input bind:value={$currentlySelectedRoom.name}/>
         {/if}
-        <div class="button"><img src="/rotate.svg" on:click={() =>rotate()}></div>
-        <div class="button"><img src="/trash.svg" on:click={()=>trash()}></div>
+        <div class="button"><img src="./rotate.svg" on:click={() =>rotate()}></div>
+        <div class="button"><img src="./trash.svg" on:click={()=>trash()}></div>
     </div>
 {/if}
 <style>

@@ -12,6 +12,8 @@ export class FloorRenderer {
     windowImage = new Image();
     singleDoorImage = new Image();
     doubleDoorImage = new Image();
+    stairsImage = new Image();
+    windowDimensions = {width: 0, height: 0}
 
     centerPosition: Point2D = {x: 0, y: 0}
     canvasOffset: Point2D = {x: 0, y: 0}
@@ -24,6 +26,7 @@ export class FloorRenderer {
         this.windowImage.src = "window-path.svg";
         this.singleDoorImage.src = "single-door.svg";
         this.doubleDoorImage.src = "double-doors.svg";
+        this.stairsImage.src = "stairs.svg";
 
         console.log(`Floor Renderer constructor! ${this.canvas} ... ${this.ctx}`)
         /*
@@ -40,6 +43,7 @@ export class FloorRenderer {
     }
 
     public dpiFix(windowWidth: number, windowHeight: number) {
+        this.windowDimensions = {width: windowWidth, height: windowHeight}
         const width = windowWidth
         const height = windowHeight
         const ratio = Math.ceil(window.devicePixelRatio);
@@ -90,6 +94,7 @@ export class FloorRenderer {
         const ctx = this.ctx;
         if (ctx) {
             ctx.clearRect(0, 0, 10000, 10000)
+            this.drawGrid(this.windowDimensions.width, this.windowDimensions.height)
             this.setCenter()
             this.rooms.forEach(room => {
                 this.drawRoom(room);
@@ -163,9 +168,9 @@ export class FloorRenderer {
         const transformedStartPoint = this.transformFakeToDrawable(startPoint);
         const transformedLastPoint = this.transformFakeToDrawable(lastPoint);
         const grd = this.ctx.createLinearGradient(transformedStartPoint.x, transformedStartPoint!.y, transformedLastPoint.x, transformedLastPoint.y)
-        grd.addColorStop(0, `rgb(${room.quality}, ${Math.abs(255 - room.quality)}, 0, 1`)
-        grd.addColorStop(1, `rgb(${room.quality}, ${Math.abs(255 - room.quality)}, 100, 1`)
-        this.ctx.fillStyle = grd
+        grd.addColorStop(0, `rgb(112, 171, 153)`)
+        grd.addColorStop(1, `rgb(101, 164, 145)`)
+        this.ctx.fillStyle = room.quality === 0 ? "rgba(0,0,0, .5)" : grd;
         this.ctx.beginPath()
         this.ctx.moveTo(transformedStartPoint.x, transformedStartPoint.y)
         room.lines.forEach(({start, end}) => {
@@ -218,7 +223,7 @@ export class FloorRenderer {
         let ctx = this.ctx
         if (!ctx) return;
         for (let canvasObject of this.objects) {
-            const objectDistance = 2.5;
+            const objectDistance = canvasObject.type === CanvasElementType.Stairs ? 6 : 2.5;
             let xAdd = 0;
             let yAdd = 0;
             if (canvasObject.rotation == 0) xAdd = 1;
@@ -235,9 +240,18 @@ export class FloorRenderer {
             ctx.rotate(Math.PI * rotation);
             let image = this.singleDoorImage;
             switch (canvasObject.type) {
-                case CanvasElementType.Door: image = this.singleDoorImage; break;
-                case CanvasElementType.Window: image = this.windowImage; break;
-                case CanvasElementType.DoubleDoor: image = this.doubleDoorImage; break;
+                case CanvasElementType.Door:
+                    image = this.singleDoorImage;
+                    break;
+                case CanvasElementType.Window:
+                    image = this.windowImage;
+                    break;
+                case CanvasElementType.DoubleDoor:
+                    image = this.doubleDoorImage;
+                    break;
+                case CanvasElementType.Stairs:
+                    image = this.stairsImage;
+                    break;
             }
             ctx.drawImage(image,
                 -objectDistance / 2 * this.pointSize,
@@ -254,28 +268,24 @@ export class FloorRenderer {
         const numberOfColumns = windowWidth / pointSize
         const numberOfRows = windowHeight / pointSize
         const lineWidth = this.pointSize / 100;
-        this.ctx.lineWidth = lineWidth
-        this.ctx.strokeStyle = `rgba(0, 0, 0, 0.1)`;
-        //ctx.strokeStyle = `rgba(0,0,0, 0)`;
-        for (let i = -windowHeight; i < windowWidth; i++) {
+        this.ctx.lineWidth = lineWidth * 2
+        this.ctx.strokeStyle = `rgba(0, 0, 0, 0.2)`;
+
+        for (let i = -numberOfColumns; i < numberOfColumns; i++) {
+            const x = i * pointSize + this.canvasOffset.x + this.pointSize - lineWidth / 2
             ctx.beginPath()
-            const x = i * pointSize + this.canvasOffset.x + this.halfPointSize - lineWidth / 2
-            ctx.strokeText(`${i}`, x - pointSize * 5 / 8, 50)
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, windowHeight);
-            ctx.closePath()
-            ctx.stroke()
-        }
-        for (let i = -windowWidth; i < windowHeight; i++) {
-            const y = -i * pointSize + this.canvasOffset.y - this.halfPointSize + lineWidth / 2
-            ctx.strokeText(`${i}`, 50, y + pointSize * 5 / 8)
-            ctx.beginPath()
-            ctx.moveTo(0, y);
-            ctx.lineTo(windowWidth, y);
-            ctx.closePath()
-            ctx.stroke()
+            ctx.moveTo(x, 0)
+            ctx.lineTo(x, windowHeight)
+            ctx.stroke();
         }
 
+        for (let i = -numberOfRows; i < numberOfRows; i++) {
+            const y = i * pointSize + this.canvasOffset.y + this.pointSize / 2 - lineWidth / 2
+            ctx.beginPath()
+            ctx.moveTo(0, y)
+            ctx.lineTo(windowWidth, y)
+            ctx.stroke();
+        }
     }
 
 }

@@ -8,12 +8,13 @@
     }
 
     const buttons: Button[] = [
-        {icon: "/point.svg", action: drawLine},
-        {icon: "/doors.svg", action: () => addDoor(false)},
-        {icon: "/double-doors.svg", action: () => addDoor(true)},
-        {icon: "/window.svg", action: addWindow},
-        {icon: "/import.svg", action: importData},
-        {icon: "/export.svg", action: exportData},
+        {icon: "./point.svg", action: drawLine},
+        {icon: "./doors.svg", action: () => addDoor(false)},
+        {icon: "./double-doors.svg", action: () => addDoor(true)},
+        {icon: "./stairs.svg", action: addStairs},
+        {icon: "./window.svg", action: addWindow},
+        {icon: "./import.svg", action: importData},
+        {icon: "./export.svg", action: exportData},
     ];
 
     function drawLine() {
@@ -37,6 +38,17 @@
                 position: {x: 0, y: 0},
                 rotation: 0,
                 type: CanvasElementType.Window,
+            })
+            return objects;
+        })
+    }
+
+    function addStairs() {
+        objectStore.update(objects => {
+            objects.push({
+                position: {x: 0, y: 0},
+                rotation: 0,
+                type: CanvasElementType.Stairs,
             })
             return objects;
         })

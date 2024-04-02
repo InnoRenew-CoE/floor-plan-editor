@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 100 500 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient gradientUnits="userSpaceOnUse" x1="193.849" y1="107.599" x2="193.849" y2="177.013" id="gradient-1" gradientTransform="matrix(1, 0, 0, 1, -5.643342, 13.54402)">
+      <stop offset="0" style="stop-color: rgb(0% 0% 0%)"/>
+      <stop offset="1" style="stop-color: rgba(0, 0, 0, 0);"/>
+    </linearGradient>
+    <linearGradient gradientUnits="userSpaceOnUse" x1="193.849" y1="107.599" x2="193.849" y2="177.013" id="gradient-2" gradientTransform="matrix(1, 0, 0, 1, 106.659149, 13.54402)">
+      <stop offset="0" style="stop-color: rgb(0% 0% 0%)"/>
+      <stop offset="1" style="stop-color: rgba(0, 0, 0, 0);"/>
+    </linearGradient>
+    <linearGradient gradientUnits="userSpaceOnUse" x1="193.849" y1="107.599" x2="193.849" y2="177.013" id="gradient-3" gradientTransform="matrix(1, 0, 0, 1, -5.643342, -585.965576)">
+      <stop offset="0" style="stop-color: rgb(0% 0% 0%)"/>
+      <stop offset="1" style="stop-color: rgba(0, 0, 0, 0);"/>
+    </linearGradient>
+    <linearGradient gradientUnits="userSpaceOnUse" x1="193.849" y1="107.599" x2="193.849" y2="177.013" id="gradient-4" gradientTransform="matrix(1, 0, 0, 1, 106.659149, -585.965576)">
+      <stop offset="0" style="stop-color: rgb(0% 0% 0%)"/>
+      <stop offset="1" style="stop-color: rgba(0, 0, 0, 0);"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="200" width="300" height="200" rx="38.86" ry="38.86" style="stroke: rgb(0, 0, 0); fill: rgb(255, 255, 255);" transform="matrix(1, 0, 0, 1, 2.842170943040401e-14, 0)"/>
+  <g transform="matrix(1, 0, 0, 1, 2.842170943040401e-14, 0)">
+    <title>Chair</title>
+    <rect x="153.499" y="160.647" width="69.414" height="29.91" rx="5" ry="5" style="stroke: rgb(0, 0, 0); fill: rgb(245, 245, 245);"/>
+    <ellipse style="stroke: url('#gradient-1'); fill: rgb(245, 245, 245);" cx="188.206" cy="155.85" rx="34.707" ry="34.707"/>
+  </g>
+  <g transform="matrix(1, 0, 0, 1, 2.842170943040401e-14, 0)">
+    <title>Chair</title>
+    <rect x="265.801" y="160.647" width="69.414" height="29.91" rx="5" ry="5" style="stroke: rgb(0, 0, 0); fill: rgb(245, 245, 245);"/>
+    <ellipse style="stroke: url('#gradient-2'); fill: rgb(245, 245, 245);" cx="300.508" cy="155.85" rx="34.707" ry="34.707"/>
+  </g>
+  <g transform="matrix(1, 0, 0, 1, 2.842170943040401e-14, 0)">
+    <title>Chair</title>
+    <rect x="153.499" y="-438.863" width="69.414" height="29.91" rx="5" ry="5" style="stroke: rgb(0, 0, 0); fill: rgb(245, 245, 245);" transform="matrix(1, 0, 0, -1, 0, 0)"/>
+    <ellipse style="stroke: url('#gradient-3'); fill: rgb(245, 245, 245);" cx="188.206" cy="-443.66" rx="34.707" ry="34.707" transform="matrix(1, 0, 0, -1, 0, 0)"/>
+  </g>
+  <g transform="matrix(1, 0, 0, 1, 2.842170943040401e-14, 0)">
+    <title>Chair</title>
+    <rect x="265.801" y="-438.863" width="69.414" height="29.91" rx="5" ry="5" style="stroke: rgb(0, 0, 0); fill: rgb(245, 245, 245);" transform="matrix(1, 0, 0, -1, 0, 0)"/>
+    <ellipse style="stroke: url('#gradient-4'); fill: rgb(245, 245, 245);" cx="300.508" cy="-443.66" rx="34.707" ry="34.707" transform="matrix(1, 0, 0, -1, 0, 0)"/>
+  </g>
+</svg>
