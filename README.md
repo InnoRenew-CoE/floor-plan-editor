@@ -1,3 +1,11 @@
+## About
+This project is a web based floor plan renderer that exports floor plans to a JSON compatible imports for Grafana Floor Plan plugin.
+The plugin repository is available at : https://github.com/InnoRenew-CoE/grafana-floor-panel
+A Github hosted static page can ba accessed at: https://innorenew-coe.github.io/floor-plan/
+
+To self-host, you can build the static page your self. 
+
+
 # create-svelte
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
