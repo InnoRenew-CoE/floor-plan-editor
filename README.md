@@ -1,4 +1,4 @@
-## About
+# About
 This project is a web based floor plan renderer that exports floor plans to a JSON compatible imports for Grafana Floor Plan plugin.
 <p> The plugin repository is available at : https://github.com/InnoRenew-CoE/grafana-floor-panel </p>
 <p> A Github hosted static page can ba accessed at: https://innorenew-coe.github.io/floor-plan/</p>
