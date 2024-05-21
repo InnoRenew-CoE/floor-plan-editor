@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/floor_plan.iml" filepath="$PROJECT_DIR$/.idea/floor_plan.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../innorenew-iaq-panel/.idea/innorenew-iaq-panel.iml" filepath="$PROJECT_DIR$/../innorenew-iaq-panel/.idea/innorenew-iaq-panel.iml" />
     </modules>
   </component>
 </project>

@@ -1,252 +1,111 @@
 <script lang="ts">
-    import {onMount} from "svelte";
-    import {fade} from "svelte/transition";
-    import {
-        ActionState,
-        CanvasElementType,
-        currentActionState,
-        currentLinesStore,
-        currentlySelectedObject,
-        currentlySelectedRoom,
-        objectStore,
-        type Point2D,
-        type Room,
-        roomStore
-    } from "$lib/types/Graphics";
-    import Polygon from "polygon";
-    import {FloorRenderer} from "$lib/components/FloorRenderer";
-
-    let floorRenderer: FloorRenderer;
-    let mouseDown: boolean = false;
-    let toolbar: HTMLElement | undefined
-    let toolbarPosition: Point2D = {x: 0, y: 0}
+    import {Renderer} from "$lib/types/Renderer"
+    import {currentRoom, currentState, type Point2D, roomStore, State} from "$lib/types/Graphics";
+    import Toolbar from "$lib/components/Toolbar.svelte";
+    import RoomToolbar from "$lib/components/RoomToolbar.svelte";
 
     let canvas: HTMLCanvasElement;
-    let ctx: CanvasRenderingContext2D;
+    let svg: SVGElement;
     let windowHeight: number, windowWidth: number
+    let moveStartPosition: Point2D;
+    let isMouseDown: boolean;
+    let mousePosition: Point2D;
+    const renderer = new Renderer();
 
-    const minimumPointSize = 20
-    let lineWidth: number = 10;
-    let pointSize = minimumPointSize
+    $: renderer.setRooms($roomStore)
+    $: if (windowWidth || windowHeight) {
+        renderer.setup(canvas, "/clean.svg", windowWidth, windowHeight);
+    }
 
-    let mousePosition: Point2D = {x: 0, y: 0}
-    let moveStartPosition: Point2D = mousePosition
-
-    function move(event: MouseEvent) {
-        mousePosition = {x: event.clientX, y: event.clientY}
-        if (event.button == 1 || 1 == event.button & 2) { // Middle button = 1, Left = 0, Right = 2
-            let distanceX = event.clientX - moveStartPosition.x
-            let distanceY = event.clientY - moveStartPosition.y
-
-            floorRenderer.canvasOffset.x += distanceX
-            floorRenderer.canvasOffset.y += distanceY
+    function onMove(e: MouseEvent) {
+        mousePosition = {x: e.clientX, y: e.clientY}
+        renderer.redraw()
+        const context = canvas.getContext("2d")
+        const fake = renderer.realToFake(mousePosition)
+        const real = renderer.fakeToReal(fake);
+        if (e.button == 1 || 1 == e.button & 2) { // Middle button = 1, Left = 0, Right = 2
+            let distanceX = e.clientX - moveStartPosition.x
+            let distanceY = e.clientY - moveStartPosition.y
+            renderer.centerPoint.x += distanceX
+            renderer.centerPoint.y += distanceY
             moveStartPosition = {...mousePosition}
-            $currentlySelectedObject = undefined;
         }
-        if (mouseDown) onDrag()
-    }
 
-    onMount(async () => {
-        floorRenderer = new FloorRenderer(canvas)
-        floorRenderer.rooms = [floorRenderer.testRoom];
-        ctx = floorRenderer.ctx;
-        floorRenderer.dpiFix(windowWidth, windowHeight);
-        floorRenderer.canvasOffset = floorRenderer.centerPosition
-        floorRenderer.redraw()
-    })
-
-    $: if (windowHeight) floorRenderer.dpiFix(windowWidth, windowHeight);
-    $: if (windowWidth) floorRenderer.dpiFix(windowWidth, windowHeight);
-    $: if (mousePosition) {
-        floorRenderer?.redraw()
-        // floorRenderer?.drawGrid(canvas.clientWidth, canvas.clientHeight);
-        drawCurrentLine()
-
-        if (floorRenderer) {
-            const ctx = floorRenderer.ctx;
-            const first = $currentLinesStore[0]
-            if (first) {
-                ctx.strokeStyle = "orange"
-                ctx.lineWidth = lineWidth
-                const transformed = floorRenderer.transformFakeToDrawable(first.start);
-                ctx.beginPath()
-                ctx.moveTo(transformed.x, transformed.y)
-                $currentLinesStore.forEach((line) => floorRenderer.drawLine(line))
-                ctx.stroke()
-            }
-        }
-    }
-    $: if (pointSize) floorRenderer?.redraw()
-    $: if ($currentActionState) floorRenderer?.redraw()
-    $: if ($currentlySelectedObject) {
-        floorRenderer?.redraw()
-    }
-
-    function onClick(event: MouseEvent) {
-        const gridPosition = floorRenderer.transformRealToFake({x: event.clientX, y: event.clientY})
-        if (event.movementX > 0 || event.movementY > 0) return;
-        if ($currentActionState === ActionState.Drawing) {
-            const linesCount = $currentLinesStore.length
-            const lastLine = $currentLinesStore[linesCount - 1];
-            const existingLine = lastLine ?? {start: {x: gridPosition.x, y: gridPosition.y}, end: {x: gridPosition.x, y: gridPosition.y}}
-            console.log($currentLinesStore.length)
-            if (!$currentLinesStore.includes(existingLine)) {
-                currentLinesStore.update(lines => {
-                    lines.push(existingLine);
-                    return lines;
-                })
-            }
-            if (JSON.stringify(gridPosition) !== JSON.stringify(existingLine.start)) {
-                existingLine.end = gridPosition;
-                if (JSON.stringify(existingLine.end) === JSON.stringify($currentLinesStore[0].start)) {
-                    const polygon = new Polygon($currentLinesStore.map(x => x.end));
-                    const center = polygon.center()
-                    const newRoom: Room = {
-                        lines: [...$currentLinesStore],
-                        quality: 0,
-                        position: {x: center.x, y: center.y},
-                        rotation: 0,
-                        type: CanvasElementType.Room,
-                        name: "No Name"
-                    }
-                    $currentLinesStore = []
-                    $currentActionState = ActionState.None
-                    roomStore.update(x => [...x, newRoom]);
-                } else {
-                    currentLinesStore.update(lines => {
-                        lines.push({start: {x: gridPosition.x, y: gridPosition.y}, end: {x: gridPosition.x, y: gridPosition.y}});
-                        return lines;
-                    })
+        const room = $currentRoom;
+        if (room) {
+            context.beginPath();
+            context.strokeStyle = "red";
+            const start = room.lines[0]?.start;
+            for (let i = 0; i < room.lines.length; i++) {
+                const line = room.lines[i];
+                const realStart = renderer.fakeToReal(line.start)
+                const realEnd = line.end ? renderer.fakeToReal(line.end) : mousePosition;
+                if (i === 0) {
+                    context.moveTo(realStart.x, realStart.y);
                 }
-                return
+                context.lineTo(realEnd.x, realEnd.y);
             }
-        } else {
-            const area = [
-                {x: gridPosition.x - 2, y: gridPosition.y - 2},
-                {x: gridPosition.x - 2, y: gridPosition.y + 2},
-                {x: gridPosition.x + 2, y: gridPosition.y + 2},
-                {x: gridPosition.x + 2, y: gridPosition.y - 2},
-                {x: gridPosition.x - 2, y: gridPosition.y - 2},
-            ]
-            const polygon = new Polygon(area);
-            const firstObjectOnGridPosition = floorRenderer.objects.findLast(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
-            $currentlySelectedObject = firstObjectOnGridPosition;
-            toolbarPosition = mousePosition
-            if (!firstObjectOnGridPosition) {
-                const room = floorRenderer.rooms.findLast(x => polygon.contains({x: x.position.x, y: x.position.y, w: 0, h: 0}))
-                $currentlySelectedRoom = room;
+            context.closePath()
+            context.stroke()
+        }
+
+    }
+
+    function zoom(e: WheelEvent) {
+        const scaleChange = e.deltaY / 50;
+        const newScale = renderer.scale + scaleChange;
+        renderer.setScale(newScale);
+        renderer.redraw();
+    }
+
+    function mouseDown(e: MouseEvent) {
+        mousePosition = {x: e.clientX, y: e.clientY};
+        moveStartPosition = {x: e.clientX, y: e.clientY}
+        const fakePosition = renderer.realToFake(moveStartPosition);
+        isMouseDown = e.button === 0;
+        if (isMouseDown && $currentState === State.Drawing) {
+            let room = $currentRoom;
+            if (!room) {
+                room = {lines: [], name: "Unknown", quality: 0}
+                $currentRoom = room;
+            }
+            const firstLine = room.lines[0];
+            let lastLine = room.lines[room.lines.length - 1];
+            if (!lastLine) {
+                room.lines.push({start: fakePosition, end: undefined})
+            } else {
+                lastLine.end = fakePosition
+                room.lines.push(lastLine);
+                if (firstLine && JSON.stringify(firstLine.start) !== JSON.stringify(lastLine.end)) {
+                    room.lines.push({start: fakePosition, end: undefined})
+                } else {
+                    $roomStore.push(room);
+                    $currentRoom = undefined;
+                }
             }
         }
-    }
 
-    function drawCurrentLine() {
-        const line = $currentLinesStore[$currentLinesStore.length - 1];
-        if (ctx && line) {
-            const direction = floorRenderer.getLineDirection(line);
-            const transformedStart = floorRenderer.transformFakeToDrawable(line.start);
-            line.end = floorRenderer.transformRealToFake(mousePosition);
-            ctx.beginPath()
-            floorRenderer.drawLine(line);
-            ctx.lineWidth = lineWidth
-            ctx.stroke()
-            ctx.fillStyle = "black"
-            floorRenderer.displayLineDistance(line, {x: mousePosition.x + pointSize, y: mousePosition.y - pointSize});
+        if (isMouseDown && $currentState === State.Idle) {
+            $currentRoom = renderer.findRoomUnderMouse(mousePosition);
+            renderer.redraw()
         }
     }
-
-
-    function onDrag() {
-        const currentObject = $currentlySelectedObject;
-        if (!currentObject) return;
-        currentObject.position = floorRenderer.transformRealToFake({x: mousePosition.x + pointSize, y: mousePosition.y + pointSize})
-        toolbarPosition = mousePosition
-    }
-
-    function rotate() {
-        const object = $currentlySelectedObject;
-        if (!object) return
-        object.rotation += 0.5
-        if (object.rotation === 2.0) object.rotation = 0;
-        floorRenderer?.redraw();
-    }
-
-    function trash() {
-        const currentRoom = $currentlySelectedRoom;
-        if (currentRoom) {
-            roomStore.update(rooms => {
-                const index = rooms.indexOf(currentRoom);
-                rooms.splice(index, 1);
-                return rooms;
-            })
-        }
-        const currentObject = $currentlySelectedObject;
-        if (currentObject) {
-            objectStore.update(objects => {
-                const index = objects.indexOf(currentObject);
-                objects.splice(index, 1);
-                return objects;
-            })
-        }
-
-        $currentlySelectedRoom = undefined;
-        $currentlySelectedObject = undefined;
-    }
-
-    $: if (floorRenderer) floorRenderer.objects = $objectStore
-    $: if (floorRenderer) floorRenderer.rooms = $roomStore
 </script>
+
 <svelte:window bind:innerHeight={windowHeight} bind:innerWidth={windowWidth}/>
-<canvas
-        bind:this={canvas}
-        on:click={onClick}
-        on:mousedown={e =>{
-            moveStartPosition = {x: e.clientX, y: e.clientY}
-            mouseDown = e.button === 0;
-        }}
-        on:mouseenter={e => (moveStartPosition = {x: e.clientX, y: e.clientY})}
-        on:mousemove={move}
-        on:mouseup={() => {mouseDown = false}}
-/>
-{#if toolbarPosition && ($currentlySelectedObject || $currentlySelectedRoom)}
-    <div in:fade out:fade
-         bind:this={toolbar} id="toolbar"
-         style="left: {toolbarPosition.x - ((toolbar?.clientWidth / 2) ?? 0)}px; top: {toolbarPosition.y + 2* pointSize}px; transition: none">
-        {#if $currentlySelectedRoom}
-            <input bind:value={$currentlySelectedRoom.name}/>
-        {/if}
-        <div class="button"><img src="./rotate.svg" on:click={() =>rotate()}></div>
-        <div class="button"><img src="./trash.svg" on:click={()=>trash()}></div>
-    </div>
-{/if}
+<div style="position: relative; overflow: hidden">
+    <canvas bind:this={canvas}
+            on:mousedown={mouseDown}
+            on:mousemove={onMove}
+            on:mouseup={() => isMouseDown = false}
+            on:wheel={zoom}/>
+    <Toolbar/>
+    {#if $currentState === State.Idle && $currentRoom}
+        <RoomToolbar bind:room={$currentRoom} {renderer}/>
+    {/if}
+</div>
 <style>
     canvas {
-        position: relative;
-        flex: 1;
-    }
-
-    #toolbar {
-        position: absolute;
-        display: flex;
-        gap: .5em;
-    }
-
-    #toolbar > .button {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: white;
-        box-shadow: 0 0 5px 5px rgba(0, 0, 0, 0.05);
-        border-radius: 5px;
-    }
-
-    .button img {
-        width: 1em;
-        height: 1em;
-        padding: .5em;
-    }
-
-    #toolbar > .button:hover {
-        transform: scale(1.1);
-        cursor: pointer;
+        background-color: rgba(111, 135, 255, 0.31);
     }
 </style>

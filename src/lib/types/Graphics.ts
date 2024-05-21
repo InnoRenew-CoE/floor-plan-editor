@@ -5,51 +5,28 @@ export type Point2D = {
     x: number,
     y: number
 }
-
-export type Room = CanvasElement & {
+export type Room = {
     lines: Line[],
     quality: number,
     name: string
 }
 
-export type CanvasElement = {
-    position: Point2D,
-    rotation: Number,
-    type: CanvasElementType
-}
-
-export type Door = CanvasElement
-export type Window = CanvasElement
-
 export type Line = {
     start: Point2D,
-    end: Point2D,
+    end: Point2D | undefined,
     // type: string
 }
 
-export const roomStore: Writable<Room[]> = writable([]);
-export const objectStore: Writable<CanvasElement[]> = writable([]);
-
-export const currentActionState: Writable<ActionState> = writable(ActionState.None)
-export const currentlySelectedObject: Writable<CanvasElement | undefined> = writable();
-export const currentlySelectedRoom: Writable<Room | undefined> = writable();
-export const currentLinesStore: Writable<Line[]> = writable([]);
-
-export enum ActionState {
-    Drawing = "Drawing",
-    None = "None",
-}
 
 export enum GridPosition {
-    Left, Right, Center, Top, Bottom
+    Center, Right, Left, Top, Bottom
 }
 
-export enum CanvasElementType {
-    Door = "Door",
-    DoubleDoor = "DoubleDoor",
-    Desk = "Desk",
-    ParkingSpace = "ParkingSpace",
-    Stairs = "Stairs",
-    Window = "Window",
-    Room = "Room"
+export enum State {
+    Idle = "Idle", Drawing = "Drawing"
 }
+
+export const roomStore: Writable<Room[]> = writable([]);
+export const currentRoom: Writable<Room | undefined> = writable();
+export const currentState: Writable<State> = writable(State.Idle)
+// export const currentLine: Writable<Line | undefined> = writable();
